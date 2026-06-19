@@ -1818,7 +1818,15 @@ const COUNTRY_CODES = {
 
 function toCountryCode(name) {
   if (!name) return name;
-  return COUNTRY_CODES[name.trim().toLowerCase()] || name;
+  const direct = COUNTRY_CODES[name.trim().toLowerCase()];
+  if (direct) return direct;
+  // Try stripping leading digit artifact (e.g. "3 Turkey" → "Turkey")
+  const noDigit = name.replace(/^\d+\s+/, '').trim();
+  if (noDigit !== name && COUNTRY_CODES[noDigit.toLowerCase()]) return COUNTRY_CODES[noDigit.toLowerCase()];
+  // Try stripping leading short lowercase artifact (e.g. "ge USA" → "USA")
+  const noPrefix = name.replace(/^[a-z]{1,3}\s+(?=[A-Z])/, '').trim();
+  if (noPrefix !== name && COUNTRY_CODES[noPrefix.toLowerCase()]) return COUNTRY_CODES[noPrefix.toLowerCase()];
+  return name;
 }
 
 // Strip leading OCR garbage (icon artifacts) from a text value
@@ -1827,8 +1835,9 @@ function cleanOCR(s) {
   // 1. Strip leading non-alphanumeric characters (pure symbol artifacts)
   s = s.replace(/^[^a-zA-Z0-9]+/, '').trim();
   // 2. Strip single-letter + non-alphanumeric "vs" fragments, e.g. "v] " or "v} "
-  //    These are Tesseract misreads of the colored circle icons between legs.
   s = s.replace(/^[a-zA-Z][^a-zA-Z0-9\s]\s+/, '').trim();
+  // 3. Strip leading digit + space (e.g. "3 Turkey")
+  s = s.replace(/^\d+\s+/, '').trim();
   return s;
 }
 
@@ -1851,11 +1860,17 @@ function parseFanaticsOCR(raw) {
     match: null, market: null, pick: null,
   };
 
+  // Detect "My Bets" open bet page (has "Cash out $X" button, no settled badge)
+  const isOpenBetPage = /Cash\s*out\s*\$[\d.]+/i.test(joined);
+
   // Outcome — read from top-right badge (first match wins, case-insensitive)
-  if (/\bcashed\s*out\b/i.test(joined)) out.outcome = 'cashout';
-  else if (/\bwon\b/i.test(joined))     out.outcome = 'win';
-  else if (/\blost\b/i.test(joined))    out.outcome = 'loss';
-  else if (/\bpush\b/i.test(joined))    out.outcome = 'push';
+  // Open bet pages have no badge → leave as null (Pending)
+  if (!isOpenBetPage) {
+    if (/\bcashed\s*out\b/i.test(joined)) out.outcome = 'cashout';
+    else if (/\bwon\b/i.test(joined))     out.outcome = 'win';
+    else if (/\blost\b/i.test(joined))    out.outcome = 'loss';
+    else if (/\bpush\b/i.test(joined))    out.outcome = 'push';
+  }
 
   // Bet type detection (check squad BEFORE parlay, as squad won't have "Leg Parlay/SGP")
   const isSquad = /SQUAD\s*BETS/i.test(joined) || /\bSquad\b/.test(joined.slice(0, 300));
@@ -1863,14 +1878,51 @@ function parseFanaticsOCR(raw) {
     out.type = 'squad';
   } else {
     // Match "X Leg Parlay ODDS" or "X Leg SGP ODDS"
-    const parlayM = joined.match(/(\d+)\s*[Ll]eg\s*(?:[Pp]arlay|SGP)\s+([\d.]+)/);
+    // (?!%) ensures we don't capture "100" from "100% Profit Boost"
+    // Capture optional second number: "4 Leg Parlay 6.60 11.01" → first=original, second=boosted
+    const parlayM = joined.match(/(\d+)\s*[Ll]eg\s*(?:[Pp]arlay|SGP)\s+([\d.]+)(?!%)\s*([\d.]+)?/);
     if (parlayM) {
       out.type = 'parlay';
       out.numLegs = parseInt(parlayM[1]);
-      out.odds = parseFloat(parlayM[2]);
+      const first  = parseFloat(parlayM[2]);
+      const second = parlayM[3] ? parseFloat(parlayM[3]) : null;
+      // If two numbers: second is boosted odds; if one: that's the odds
+      const rawOdds = (second && second > 1.01 && second < 500) ? second : first;
+      out.odds = (rawOdds > 1.01 && rawOdds < 500) ? rawOdds : null;
       // SGP detection: "X Leg SGP" label, "Same Game Parlay", or all vs-blocks same teams
       if (/\bSGP\b/.test(joined) || /same\s*game\s*parlay/i.test(joined)) {
         out.sgp = true;
+      }
+    } else {
+      // "X Leg Parlay" without odds directly after (e.g. profit boost between)
+      const legOnlyM = joined.match(/(\d+)\s*[Ll]eg\s*(?:[Pp]arlay|SGP)/);
+      if (legOnlyM) {
+        out.type = 'parlay';
+        out.numLegs = parseInt(legOnlyM[1]);
+        if (/\bSGP\b/.test(joined) || /same\s*game\s*parlay/i.test(joined)) out.sgp = true;
+      }
+    }
+
+    // Boosted odds: OCR may misread the money-bag icon next to "Profit Boost",
+    // so search for "Boost" alone. Take the largest decimal found nearby (= boosted value).
+    if (out.type === 'parlay' && !out.odds) {
+      const profitBoostIdx = joined.search(/\bBoost\b/i);
+      if (profitBoostIdx !== -1) {
+        // Wide window: 150 chars before + 300 chars after "Boost"
+        // Takes the largest decimal found = boosted odds (always > original odds and leg odds)
+        const boostSection = joined.slice(Math.max(0, profitBoostIdx - 150), profitBoostIdx + 300);
+        const nums = [...boostSection.matchAll(/([\d]+\.[\d]{1,2})/g)]
+          .map(m => parseFloat(m[1]))
+          .filter(v => v > 1.01 && v < 500);
+        if (nums.length > 0) out.odds = Math.max(...nums);
+      } else {
+        // Non-boosted: find first decimal near parlay header
+        const parlayPos = joined.search(/\d+\s*[Ll]eg\s*(?:[Pp]arlay|SGP)/i);
+        if (parlayPos !== -1) {
+          const nearby = joined.slice(parlayPos, parlayPos + 150);
+          const oddsM = nearby.match(/([\d]+\.[\d]{2})/);
+          if (oddsM) { const v = parseFloat(oddsM[1]); if (v > 1.01 && v < 500) out.odds = v; }
+        }
       }
     }
   }
@@ -1979,8 +2031,77 @@ function parseFanaticsOCR(raw) {
       return { name, home: toCountryCode(home), away: toCountryCode(away) };
     });
 
+  } else if (out.type === 'parlay' && isOpenBetPage) {
+    // Open "My Bets" page format:
+    //   Pick            Odds   ← same line, odds right-aligned
+    //   Market
+    //   League • Home vs Away (Today HH:MMam)
+    //   All wagers apply... (disclaimer, skip)
+    // Skip lines that are clearly not bet picks
+    const SKIP_PICK = /cash\s*out|bet\s*again|share|\$[\d]|%|profit\s*boost|my\s*bets|wager|payout|live|open|settled|fcash|\bleg\b|\bparlay\b|\bsgp\b/i;
+    lines.forEach((line, i) => {
+      const m = line.match(/^(.+?)\s+([\d]+\.[\d]{2})\s*$/);
+      if (!m) return;
+      const odds = parseFloat(m[2]);
+      const rawPick = m[1].trim();
+      if (odds < 1.01 || odds > 99) return;
+      if (looksLikeGarbage(rawPick) || SKIP_PICK.test(rawPick)) return;
+      // Scan forward up to 6 lines for market and the "League • Home vs Away" line
+      let market = '';
+      let matchLine = '';
+      for (let j = i + 1; j < Math.min(i + 7, lines.length); j++) {
+        const l = lines[j];
+        if (!market && !looksLikeGarbage(cleanOCR(l)) && !SKIP_PICK.test(l)) {
+          market = cleanOCR(l);
+        }
+        if (l.includes('•') || (/\bvs\b/i.test(l) && l.includes('•'))) {
+          matchLine = l; break;
+        }
+        // Also catch vs-line without bullet (fallback)
+        if (!matchLine && /\bvs\b/i.test(l) && l.length < 80) matchLine = l;
+      }
+      // Extract "Home vs Away" from "League • Home vs Away (Today ...)"
+      // OCR may read • as *, ·, |, or other chars — so find vs, then strip league prefix from home
+      let home = '', away = '';
+      if (matchLine) {
+        const vsIdx = matchLine.search(/\s+vs\.?\s+/i);
+        if (vsIdx !== -1) {
+          const homePart = matchLine.slice(0, vsIdx);
+          const awayPart = matchLine.slice(vsIdx).replace(/^\s+vs\.?\s+/i, '').replace(/\s*\(.*$/, '').trim();
+          // Strip league prefix from home.
+          // OCR may read • as *, ·, |, space, or drop it entirely.
+          // Strategy 1: explicit separator char found
+          const sepM = homePart.match(/[•·*|]\s*(.+)$/);
+          let rawHome = sepM ? sepM[1].trim() : '';
+          if (!rawHome) {
+            // Strategy 2: greedy strip up to the LAST league keyword, then take what follows
+            // Use greedy .* so it finds the rightmost keyword (e.g. "FIFA World Cup" → stops at "Cup" not "World")
+            // "World" excluded from list to avoid "FIFA World" matching before "Cup"
+            rawHome = homePart.replace(/^.*(?:Cup|League|División|Ligue|Liga|Series?|Premier|Bundesliga|Championship|Conference|Europa|Champions)\s*/i, '').trim();
+          }
+          if (!rawHome) rawHome = homePart.trim();
+          // Clean up OCR artifacts at start (e.g. "e Brazil" → "Brazil")
+          rawHome = rawHome.replace(/^[^a-zA-Z0-9]+/, '').trim();
+          rawHome = rawHome.replace(/^\d+\s+/, '').trim();
+          rawHome = rawHome.replace(/^[a-z]{1,3}\s+(?=[A-Z])/, '').trim();
+          home = toCountryCode(rawHome);
+          away = toCountryCode(awayPart);
+        }
+      }
+      // Pick: also strip flag-icon OCR artifact prefix (e.g. "ge USA")
+      let rawPickClean = cleanOCR(rawPick);
+      rawPickClean = rawPickClean.replace(/^[a-z]{1,3}\s+(?=[A-Z])/, '').trim();
+      out.legs.push({
+        pick: toCountryCode(rawPickClean),
+        odds,
+        market,
+        home,
+        away,
+      });
+    });
+
   } else if (out.type === 'parlay') {
-    // Parlay: pick→market→vs order
+    // Settled bet format: pick→market→vs order above each vs-line
     function extractBlockAbove(vsIdx) {
       const clean = [];
       for (let back = 1; back <= 8 && vsIdx - back >= 0 && clean.length < 2; back++) {
@@ -2119,7 +2240,8 @@ async function fillFormFromParsed(prefix, p) {
         _setSelectValue(`pl-market-${i}`, leg.market);
         document.getElementById(`pl-market-${i}`)?.classList.add('ocr-filled');
       }
-      // odds left blank for user
+      // Fill per-leg odds if provided (open bet format)
+      if (leg.odds) _ocrFill(`pl-odds-${i}`, leg.odds);
     });
     calcParlayTotals();
     // Fill payout after stake+odds are set
