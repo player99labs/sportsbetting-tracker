@@ -74,7 +74,7 @@ nav { display: flex; gap: 2px; }
 .nav-btn.active { background: var(--surface2); color: var(--text); }
 
 /* ── Layout ── */
-main { padding: 28px; max-width: 1180px; margin: 0 auto; }
+main { padding: 28px; max-width: 1440px; margin: 0 auto; }
 
 .view { display: none; }
 .view.active { display: block; }
@@ -567,12 +567,12 @@ input.ocr-filled, select.ocr-filled {
         </div>
         <div class="fg c2">
           <label>Home</label>
-          <input id="f-home" type="text">
+          <input id="f-home" type="text" onblur="autoCodeCountry(this)">
         </div>
         <div class="fg c2" style="display:flex;flex-direction:column;justify-content:flex-end">
           <label>Away</label>
           <div style="display:flex;align-items:center;gap:6px">
-            <input id="f-away" type="text">
+            <input id="f-away" type="text" onblur="autoCodeCountry(this)">
           </div>
         </div>
         <div class="fg c2">
@@ -679,8 +679,8 @@ input.ocr-filled, select.ocr-filled {
 
       <div id="pl-sgp-home-row" style="display:none;margin-bottom:18px">
         <div class="form-grid">
-          <div class="fg c2"><label>Home</label><input id="pl-sgp-home" type="text"></div>
-          <div class="fg c2"><label>Away</label><input id="pl-sgp-away" type="text"></div>
+          <div class="fg c2"><label>Home</label><input id="pl-sgp-home" type="text" onblur="autoCodeCountry(this)"></div>
+          <div class="fg c2"><label>Away</label><input id="pl-sgp-away" type="text" onblur="autoCodeCountry(this)"></div>
         </div>
       </div>
 
@@ -826,6 +826,7 @@ input.ocr-filled, select.ocr-filled {
     <div class="page-header" style="display:flex;align-items:center;justify-content:space-between">
       <h2>Bet History</h2>
       <div style="display:flex;gap:8px">
+        <button class="btn-secondary" id="expand-all-btn" onclick="toggleExpandAll()">Expand All</button>
         <button class="btn-secondary" onclick="exportData()">↓ Export</button>
         <label class="btn-secondary" style="cursor:pointer;margin:0;font:inherit;display:inline-flex;align-items:center">
           ↑ Import
@@ -841,6 +842,13 @@ input.ocr-filled, select.ocr-filled {
     <div class="page-header">
       <h2>Dashboard</h2>
       <p>Financial Summary and Performance Analysis. Cashout bets are excluded from win rate and calibration charts, but included in all financial calculations.</p>
+      <button onclick="toggleHideAmounts()" id="hide-amounts-btn" title="Show/hide amounts"
+        style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--muted);display:flex;align-items:center;gap:6px;font-size:12px;margin-top:8px">
+        <svg id="hide-amounts-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+        <span id="hide-amounts-label">Hide amounts</span>
+      </button>
     </div>
     <div class="stats-row" id="stats-row"></div>
     <div class="stats-row2" id="stats-row2"></div>
@@ -863,7 +871,10 @@ input.ocr-filled, select.ocr-filled {
       </div>
     </div>
     <div class="market-card">
-      <div class="market-card-header">Performance by Market</div>
+      <div class="market-card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <span>Performance by Market</span>
+        <div id="market-tag-filter" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px"></div>
+      </div>
       <div id="market-container"></div>
     </div>
   </div>
@@ -892,11 +903,11 @@ input.ocr-filled, select.ocr-filled {
       </div>
       <div class="fg">
         <label>Home</label>
-        <input id="e-home" type="text">
+        <input id="e-home" type="text" onblur="autoCodeCountry(this)">
       </div>
       <div class="fg">
         <label>Away</label>
-        <input id="e-away" type="text">
+        <input id="e-away" type="text" onblur="autoCodeCountry(this)">
       </div>
       <div class="fg">
         <label>Market</label>
@@ -1027,8 +1038,8 @@ input.ocr-filled, select.ocr-filled {
   <div class="modal" style="width:480px;max-width:95vw">
     <div class="modal-title">Edit Leg</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="fg"><label>Home</label><input id="le-home" type="text"></div>
-      <div class="fg"><label>Away</label><input id="le-away" type="text"></div>
+      <div class="fg"><label>Home</label><input id="le-home" type="text" onblur="autoCodeCountry(this)"></div>
+      <div class="fg"><label>Away</label><input id="le-away" type="text" onblur="autoCodeCountry(this)"></div>
       <div class="fg">
         <label>Minute</label>
         <div style="display:flex;align-items:center;gap:4px">
@@ -1118,8 +1129,8 @@ input.ocr-filled, select.ocr-filled {
     <div class="modal-title">Edit Player</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       <div class="fg" style="grid-column:span 2"><label>Name</label><input id="spe-name" type="text"></div>
-      <div class="fg"><label>Home</label><input id="spe-home" type="text"></div>
-      <div class="fg"><label>Away</label><input id="spe-away" type="text"></div>
+      <div class="fg"><label>Home</label><input id="spe-home" type="text" onblur="autoCodeCountry(this)"></div>
+      <div class="fg"><label>Away</label><input id="spe-away" type="text" onblur="autoCodeCountry(this)"></div>
     </div>
     <div class="modal-footer" style="margin-top:16px">
       <button class="btn-primary" onclick="saveSquadPlayerEdit()">Save</button>
@@ -1407,8 +1418,8 @@ function renderParlayLegs() {
         ${parlayLegs.length > 1 ? `<button type="button" class="del-btn" onclick="removeParlayLeg(${i})" title="Remove leg">✕</button>` : ''}
       </div>
       <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px">
-        ${sgpMode ? '' : `<div class="fg c2"><label>Home</label><input id="pl-home-${i}" type="text" oninput="calcParlayTotals()"></div>`}
-        ${sgpMode ? '' : `<div class="fg c2"><label>Away</label><input id="pl-away-${i}" type="text" oninput="calcParlayTotals()"></div>`}
+        ${sgpMode ? '' : `<div class="fg c2"><label>Home</label><input id="pl-home-${i}" type="text" oninput="calcParlayTotals()" onblur="autoCodeCountry(this)"></div>`}
+        ${sgpMode ? '' : `<div class="fg c2"><label>Away</label><input id="pl-away-${i}" type="text" oninput="calcParlayTotals()" onblur="autoCodeCountry(this)"></div>`}
         <div class="fg c2">
           <label>Minute</label>
           <div style="display:flex;align-items:center;gap:4px">
@@ -1659,8 +1670,9 @@ function autoFillPayout(prefix) {
     odds = parseFloat(document.getElementById(prefix === 'f' ? 'f-odds' : 'sq-odds')?.value) || 0;
   }
   const payoutEl = document.getElementById(`${prefix}-payout`);
+  const isBonus = document.getElementById(`${prefix}-bonus`)?.checked || false;
   if (payoutEl && stake > 0 && odds > 1) {
-    payoutEl.value = (stake * odds).toFixed(2);
+    payoutEl.value = (isBonus ? stake * (odds - 1) : stake * odds).toFixed(2);
   }
 }
 
@@ -1856,6 +1868,11 @@ function toCountryCode(name) {
   const noPrefix = name.replace(/^[a-z]{1,3}\s+(?=[A-Z])/, '').trim();
   if (noPrefix !== name && COUNTRY_CODES[noPrefix.toLowerCase()]) return COUNTRY_CODES[noPrefix.toLowerCase()];
   return name;
+}
+
+function autoCodeCountry(el) {
+  const code = toCountryCode(el.value.trim());
+  if (code) el.value = code;
 }
 
 // Strip leading OCR garbage (icon artifacts) from a text value
@@ -2811,7 +2828,17 @@ function importData(event) {
 // ─────────────────────────────────────────
 // History
 // ─────────────────────────────────────────
+let _historySort = { col: 'date', dir: -1 };
+function sortHistory(col) {
+  if (_historySort.col === col) _historySort.dir *= -1;
+  else { _historySort.col = col; _historySort.dir = -1; }
+  renderHistory();
+}
+
 function renderHistory() {
+  _allExpanded = false;
+  const btn = document.getElementById('expand-all-btn');
+  if (btn) btn.textContent = 'Expand All';
   const bets = load();
   const container = document.getElementById('history-container');
 
@@ -2820,17 +2847,30 @@ function renderHistory() {
     return;
   }
 
-  // Sort by date descending, then by insertion order (id) descending within same date
-  bets.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  // Sort
+  const hs = _historySort;
+  bets.sort((a, b) => {
+    let av, bv;
+    if (hs.col === 'date')    { return hs.dir * (a.date.localeCompare(b.date) || a.id - b.id); }
+    if (hs.col === 'stake')   { av = a.stake ?? 0;         bv = b.stake ?? 0; }
+    else if (hs.col === 'odds')    { av = a.odds ?? 0;          bv = b.odds ?? 0; }
+    else if (hs.col === 'profit')  { av = a.profit ?? -Infinity; bv = b.profit ?? -Infinity; }
+    else if (hs.col === 'edge')    { av = a.edge ?? -Infinity;   bv = b.edge ?? -Infinity; }
+    else return hs.dir * (b.date.localeCompare(a.date) || b.id - a.id);
+    return hs.dir * (av - bv);
+  });
+
+  const ha = col => hs.col === col ? (hs.dir === -1 ? ' ↓' : ' ↑') : '';
+  const hth = (col, label) => `<th style="cursor:pointer;user-select:none" onclick="sortHistory('${col}')">${label}${ha(col)}</th>`;
 
   container.innerHTML = `
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Match</th><th>Min</th><th>Market</th><th>Pick</th>
-            <th>Stake</th><th>Odds</th><th>Impl. Prob</th><th>Pred. Prob</th><th>Pred. Edge</th>
-            <th>Outcome</th><th>Profit</th><th>Comment</th><th></th>
+            ${hth('date','Date')}<th>Match</th><th>Min</th><th>Market</th><th>Pick</th>
+            ${hth('stake','Stake')}${hth('odds','Odds')}<th>Impl. Prob</th><th>Pred. Prob</th>${hth('edge','Pred. Edge')}
+            <th>Outcome</th>${hth('profit','Profit')}<th>Comment</th><th></th>
           </tr>
         </thead>
         <tbody>${bets.map(betRow).join('')}</tbody>
@@ -2850,8 +2890,8 @@ function betRow(b) {
     <td><strong>${b.match}</strong></td>
     <td>${b.time || '—'}</td>
     <td>${b.market || '—'}</td>
-    <td>${b.pick || '—'}${b.bonus ? ' <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600">BONUS</span>' : ''}</td>
-    <td>${money(b.stake)}</td>
+    <td>${b.pick || '—'}</td>
+    <td>${money(b.stake)}${b.bonus ? ' <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600">BONUS</span>' : ''}</td>
     <td>${b.odds.toFixed(2)}</td>
     <td>${pct(b.impliedProb)}</td>
     <td>${b.myProb !== null ? pct(b.myProb) : '<span style="color:var(--muted)">—</span>'}</td>
@@ -2918,10 +2958,9 @@ function parlayRow(b) {
       ${b.sgp ? `<strong>${b.legs[0]?.match || ''}</strong> ` : ''}
       <span style="font-size:11px;color:var(--muted)">${b.legs.length} legs</span>
       <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600;margin-left:4px">PARLAY</span>
-      ${b.bonus ? ' <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600">BONUS</span>' : ''}
     </td>
     <td>—</td><td>—</td><td>—</td>
-    <td>${money(b.stake)}</td>
+    <td>${money(b.stake)}${b.bonus ? ' <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600">BONUS</span>' : ''}</td>
     <td>${b.odds.toFixed(2)}</td>
     <td>${pct(b.impliedProb)}</td>
     <td>${b.myProb !== null ? pct(b.myProb) : '<span style="color:var(--muted)">—</span>'}</td>
@@ -2967,12 +3006,11 @@ function squadRow(b) {
     <td>
       <span style="font-size:11px;color:var(--muted)">${b.players.length} players</span>
       <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600;margin-left:4px">SQUAD</span>
-      ${b.bonus ? ' <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600">BONUS</span>' : ''}
     </td>
     <td>—</td>
     <td>${b.market ? `Squad Bets - ${b.market}` : '—'}</td>
     <td>${b.pick || '—'}</td>
-    <td>${money(b.stake)}</td>
+    <td>${money(b.stake)}${b.bonus ? ' <span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);border-radius:3px;padding:1px 5px;font-weight:600">BONUS</span>' : ''}</td>
     <td>${b.odds.toFixed(2)}</td>
     <td>${pct(b.impliedProb)}</td>
     <td>${b.myProb !== null ? pct(b.myProb) : '<span style="color:var(--muted)">—</span>'}</td>
@@ -3007,6 +3045,27 @@ function toggleSquadExpand(id) {
     const row = document.getElementById(`squad-row-${id}-${pi}`);
     if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
   });
+}
+
+let _allExpanded = false;
+function toggleExpandAll() {
+  _allExpanded = !_allExpanded;
+  const bets = load();
+  bets.forEach(b => {
+    if (b.type === 'parlay') {
+      b.legs.forEach((_, li) => {
+        const row = document.getElementById(`leg-row-${b.id}-${li}`);
+        if (row) row.style.display = _allExpanded ? 'table-row' : 'none';
+      });
+    } else if (b.type === 'squad') {
+      b.players.forEach((_, pi) => {
+        const row = document.getElementById(`squad-row-${b.id}-${pi}`);
+        if (row) row.style.display = _allExpanded ? 'table-row' : 'none';
+      });
+    }
+  });
+  const btn = document.getElementById('expand-all-btn');
+  if (btn) btn.textContent = _allExpanded ? 'Collapse All' : 'Expand All';
 }
 
 function toggleParlayExpand(id) {
@@ -3074,6 +3133,7 @@ async function setParlayOutcome(id, outcome, sel) {
   } else {
     b.outcome = outcome;
     b.profit = null;
+    if (outcome === 'pending') b.legs.forEach(leg => leg.outcome = 'pending');
   }
 
   if (sel) sel.className = 'outcome-sel ' + b.outcome;
@@ -3358,12 +3418,14 @@ function renderDashboard(skipCharts = false) {
   const settled   = bets.filter(b => b.outcome !== 'pending');
 
   // Calibration data points: singles/squads + parlay legs — all at event level
-  const singleTracked = singles.filter(b => b.outcome !== 'pending' && b.outcome !== 'cashout' && b.outcome !== 'push' && b.myProb !== null);
+  const singleTracked = singles
+    .filter(b => b.outcome !== 'pending' && b.outcome !== 'cashout' && b.outcome !== 'push' && b.myProb !== null)
+    .map(b => b.type === 'squad' ? { ...b, market: b.market ? `Squad Bets - ${b.market}` : b.market } : b);
   const legTracked = [];
   parlays.forEach(b => {
     b.legs.forEach(leg => {
       if (leg.outcome !== 'pending' && leg.myProb !== null) {
-        legTracked.push({ myProb: leg.myProb, edge: leg.edge, impliedProb: leg.impliedProb, outcome: leg.outcome, market: leg.market });
+        legTracked.push({ myProb: leg.myProb, edge: leg.edge, impliedProb: leg.impliedProb, outcome: leg.outcome, market: leg.market, tags: b.tags || [] });
       }
     });
   });
@@ -3437,6 +3499,21 @@ function renderDashboard(skipCharts = false) {
 
 let _yieldIncludeProfit = true;
 let _yieldIncludeStake  = true;
+let _hideAmounts = false;
+
+function toggleHideAmounts() {
+  _hideAmounts = !_hideAmounts;
+  const icon = document.getElementById('hide-amounts-icon');
+  const label = document.getElementById('hide-amounts-label');
+  if (_hideAmounts) {
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>';
+    label.textContent = 'Show amounts';
+  } else {
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+    label.textContent = 'Hide amounts';
+  }
+  renderDashboard(true);
+}
 let _wrByEvent = true;  // true = parlay legs count individually; false = parlay counts as 1
 
 function toggleWinRate() {
@@ -3508,7 +3585,7 @@ function toggleYield(field) {
   const yldDenominator = realStaked + (_yieldIncludeStake ? bonusStaked : 0);
   const yld = yldDenominator > 0 ? yldNumerator / yldDenominator : null;
   const el = id => document.getElementById(id);
-  if (el('staked-value')) el('staked-value').textContent = money(yldDenominator);
+  if (el('staked-value')) el('staked-value').innerHTML = _hideAmounts ? '<span style="letter-spacing:2px;color:var(--muted)">••••••</span>' : money(yldDenominator);
   if (el('staked-sub'))   el('staked-sub').textContent   = _yieldIncludeStake ? 'real + bonus' : 'real only';
   if (el('staked-check')) el('staked-check').checked = _yieldIncludeStake;
   if (el('yield-value')) {
@@ -3519,9 +3596,10 @@ function toggleYield(field) {
 
 function stakedCard(total) {
   const sub = _yieldIncludeStake ? 'real + bonus' : 'real only';
+  const val = _hideAmounts ? '<span style="letter-spacing:2px;color:var(--muted)">••••••</span>' : money(total);
   return `<div class="stat-card">
     <div class="stat-label">Total Staked</div>
-    <div class="stat-value" id="staked-value">${money(total)}</div>
+    <div class="stat-value" id="staked-value">${val}</div>
     <div style="display:flex;gap:10px;align-items:center;margin-top:6px;font-size:11px;color:var(--muted)">
       <span id="staked-sub">${sub}</span>
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;margin-left:auto">
@@ -3535,10 +3613,10 @@ function stakedCard(total) {
 
 function profitCard(total) {
   const cls = total >= 0 ? 'pos' : 'neg';
-  const val = money(total, true);
+  const val = _hideAmounts ? '<span style="letter-spacing:2px;color:var(--muted)">••••••</span>' : money(total, true);
   return `<div class="stat-card">
     <div class="stat-label">Total Profit</div>
-    <div class="stat-value ${cls}">${val}</div>
+    <div class="stat-value ${_hideAmounts ? '' : cls}">${val}</div>
     <div class="stat-sub">from real + bonus</div>
   </div>`;
 }
@@ -3569,7 +3647,7 @@ function yieldCard(yld) {
 }
 
 function depositCard(deposit) {
-  const val = deposit > 0 ? money(deposit) : '—';
+  const val = _hideAmounts ? '<span style="letter-spacing:2px;color:var(--muted)">••••••</span>' : (deposit > 0 ? money(deposit) : '—');
   return `<div class="stat-card">
     <div class="stat-label">Total Deposit</div>
     <div class="stat-value" id="deposit-display" onclick="showDepositInput()"
@@ -3670,8 +3748,9 @@ function renderProfitChart(bets) {
         label: 'Cumulative Profit',
         data: points.map(p => p.y),
         borderWidth: 2,
-        pointRadius: smallSet ? 3 : 0,
-        pointHoverRadius: 5,
+        pointRadius: smallSet ? 4 : 2,
+        pointHoverRadius: 7,
+        pointHitRadius: 16,
         pointBackgroundColor: pointColors,
         pointBorderColor: pointColors,
         fill: true,
@@ -3871,7 +3950,48 @@ function renderEdgeChart(settled) {
 }
 
 // Market breakdown table
+let _marketSort = { col: 'n', dir: -1 };
+let _marketSettled = [];
+let _marketExcludedTags = new Set();
+
+function toggleMarketExcludeTag(tagId) {
+  if (_marketExcludedTags.has(tagId)) _marketExcludedTags.delete(tagId);
+  else _marketExcludedTags.add(tagId);
+  renderMarketTagFilter();
+  renderMarketTable(_marketSettled);
+}
+
+function renderMarketTagFilter() {
+  const el = document.getElementById('market-tag-filter');
+  if (!el) return;
+  const tags = loadTags();
+  if (!tags.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<span style="color:var(--muted);margin-right:2px">Exclude:</span>' +
+    tags.map(t => {
+      const excluded = _marketExcludedTags.has(t.id);
+      const bg = excluded ? hexRgba(t.color, 0.25) : 'transparent';
+      const border = excluded ? t.color : 'var(--border)';
+      const textColor = excluded ? t.color : 'var(--muted)';
+      const strike = excluded ? 'text-decoration:line-through;' : '';
+      return `<span onclick="toggleMarketExcludeTag('${t.id}')"
+        style="cursor:pointer;padding:2px 8px;border-radius:20px;border:1px solid ${border};
+               background:${bg};color:${textColor};${strike}font-size:11px;font-weight:500;
+               transition:all 0.12s">${t.label}</span>`;
+    }).join('');
+}
+
+function sortMarketTable(col) {
+  if (_marketSort.col === col) _marketSort.dir *= -1;
+  else { _marketSort.col = col; _marketSort.dir = -1; }
+  renderMarketTable(_marketSettled);
+}
 function renderMarketTable(settled) {
+  _marketSettled = settled;
+  renderMarketTagFilter();
+  // Apply tag exclusion filter
+  if (_marketExcludedTags.size > 0) {
+    settled = settled.filter(b => !b.tags || !b.tags.some(id => _marketExcludedTags.has(id)));
+  }
   const container = document.getElementById('market-container');
   const markets = [...new Set(settled.map(b => b.market).filter(Boolean))];
 
@@ -3888,15 +4008,22 @@ function renderMarketTable(settled) {
     const actWR   = wins.length / group.length;
     const delta   = actWR - expWR;
     return { mkt, n: group.length, avgEdge, expWR, actWR, delta };
-  }).sort((a, b) => b.n - a.n);
+  }).sort((a, b) => _marketSort.dir * ((a[_marketSort.col] ?? -Infinity) - (b[_marketSort.col] ?? -Infinity)));
+
+  const arr = col => _marketSort.col === col ? (_marketSort.dir === -1 ? ' ↓' : ' ↑') : '';
+  const th = (col, label) => `<th style="cursor:pointer;user-select:none" onclick="sortMarketTable('${col}')">${label}${arr(col)}</th>`;
 
   container.innerHTML = `
     <div class="table-wrap" style="border:none;border-radius:0">
       <table>
         <thead>
           <tr>
-            <th>Market</th><th>Bets</th><th>Avg Pred. Edge</th>
-            <th>My Avg Prob</th><th>Actual Win Rate</th><th>Calibration Δ</th>
+            <th>Market</th>
+            ${th('n','Bets')}
+            ${th('avgEdge','Avg Pred. Edge')}
+            ${th('expWR','My Avg Prob')}
+            ${th('actWR','Actual Win Rate')}
+            ${th('delta','Calibration Δ')}
           </tr>
         </thead>
         <tbody>
