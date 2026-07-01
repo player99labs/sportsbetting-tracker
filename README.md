@@ -14,4 +14,4 @@ Built to test whether value betting actually beats the book over FIFA World Cup 
 
 ---
 
-*made by [@player99labs](.)*
+*made by [@player99labs](https://github.com/player99labs)*
