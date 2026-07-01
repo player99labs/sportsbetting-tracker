@@ -280,7 +280,7 @@ tr:hover td { background: var(--surface2); }
 }
 .stats-row2 {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -842,21 +842,35 @@ input.ocr-filled, select.ocr-filled {
     <div class="page-header">
       <h2>Dashboard</h2>
       <p>Financial Summary and Performance Analysis. Cashout bets are excluded from win rate and calibration charts, but included in all financial calculations.</p>
+    </div>
+    <div style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border);padding-top:20px;display:flex;align-items:center;gap:12px">
+      Financial Summary
       <button onclick="toggleHideAmounts()" id="hide-amounts-btn" title="Show/hide amounts"
-        style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;color:var(--muted);display:flex;align-items:center;gap:6px;font-size:12px;margin-top:8px">
-        <svg id="hide-amounts-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;color:var(--muted);display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none">
+        <svg id="hide-amounts-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
         </svg>
         <span id="hide-amounts-label">Hide amounts</span>
       </button>
     </div>
-    <div class="stats-row" id="stats-row"></div>
     <div class="stats-row2" id="stats-row2"></div>
     <div class="chart-card" style="margin-bottom:20px">
-      <div class="chart-title">Profit Over Time</div>
-      <div class="chart-sub">Cumulative profit across all settled bets</div>
-      <canvas id="chart-profit" height="120"></canvas>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+        <div>
+          <div class="chart-title">Profit Over Time</div>
+          <div class="chart-sub" id="profit-chart-sub">Cumulative profit grouped by day</div>
+        </div>
+        <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:11px;font-weight:600">
+          <button id="profit-mode-day" onclick="setProfitChartMode('day')"
+            style="padding:3px 10px;cursor:pointer;border:none;border-right:1px solid var(--border);background:var(--accent);color:#fff">Daily</button>
+          <button id="profit-mode-bet" onclick="setProfitChartMode('bet')"
+            style="padding:3px 10px;cursor:pointer;border:none;background:none;color:var(--muted)">Per bet</button>
+        </div>
+      </div>
+      <canvas id="chart-profit" height="75"></canvas>
     </div>
+    <div style="margin:24px 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border);padding-top:20px">Prediction Performance</div>
+    <div class="stats-row" id="stats-row"></div>
     <div class="charts-row">
       <div class="chart-card">
         <div class="chart-title">Calibration</div>
@@ -1227,9 +1241,19 @@ function showView(btn, name) {
   document.getElementById('view-' + name).classList.add('active');
   btn.classList.add('active');
   document.querySelector('main').style.maxWidth = name === 'history' ? '1600px' : '1180px';
+  localStorage.setItem('vbt_active_tab', name);
   if (name === 'history') renderHistory();
   if (name === 'dashboard') renderDashboard();
 }
+
+// Restore last active tab on load
+window.addEventListener('load', function() {
+  const last = localStorage.getItem('vbt_active_tab');
+  if (last && last !== 'add') {
+    const btn = document.querySelector(`.nav-btn[data-view="${last}"]`);
+    if (btn) showView(btn, last);
+  }
+});
 
 // ─────────────────────────────────────────
 // Toast
@@ -2802,24 +2826,26 @@ function importData(event) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async e => {
+    let data;
     try {
-      const data = JSON.parse(e.target.result);
+      data = JSON.parse(e.target.result);
       if (!Array.isArray(data.bets)) throw new Error('Invalid file');
-      const ok = await customConfirm('Import Data', `Import ${data.bets.length} bets? This will replace your current data.`, 'Import');
-      if (!ok) return;
-      save(data.bets);
-      if (Array.isArray(data.markets)) saveMarkets(data.markets);
-      if (Array.isArray(data.squadMarkets)) localStorage.setItem('vbt_squad_markets_v1', JSON.stringify(data.squadMarkets));
-      if (Array.isArray(data.tags)) saveTags(data.tags);
-      if (typeof data.deposit === 'number') saveDeposit(data.deposit);
-      refreshMarketList();
-      refreshSquadMarketList();
-      renderHistory();
-      renderDashboard();
-      toast('Data imported ✓');
     } catch {
       toast('Invalid file — make sure it\'s a Betting Performance Tracker export.');
+      return;
     }
+    const ok = await customConfirm('Import Data', `Import ${data.bets.length} bets? This will replace your current data.`, 'Import');
+    if (!ok) return;
+    save(data.bets);
+    if (Array.isArray(data.markets)) saveMarkets(data.markets);
+    if (Array.isArray(data.squadMarkets)) localStorage.setItem('vbt_squad_markets_v1', JSON.stringify(data.squadMarkets));
+    if (Array.isArray(data.tags)) saveTags(data.tags);
+    if (typeof data.deposit === 'number') saveDeposit(data.deposit);
+    refreshMarketList();
+    refreshSquadMarketList();
+    renderHistory();
+    renderDashboard();
+    toast('Data imported ✓');
   };
   reader.readAsText(file);
   event.target.value = ''; // reset so same file can be re-imported
@@ -3431,19 +3457,22 @@ function renderDashboard(skipCharts = false) {
   });
   const tracked = [...singleTracked, ...legTracked];
 
-  // Win rate: singles always count as 1; parlays either by leg (event) or by bet
-  const singleConcluded = singles.filter(b => b.outcome === 'win' || b.outcome === 'loss');
+  // Win rate: apply tag exclusion, then count
+  const wrTagFilter = b => _wrExcludedTags.size === 0 || !b.tags || !b.tags.some(id => _wrExcludedTags.has(id));
+  const singlesForWR = singles.filter(wrTagFilter);
+  const parlaysForWR = parlays.filter(wrTagFilter);
+  const singleConcluded = singlesForWR.filter(b => b.outcome === 'win' || b.outcome === 'loss');
   const singleWins      = singleConcluded.filter(b => b.outcome === 'win');
   let totalConcluded, totalWins;
   if (_wrByEvent) {
     const parlayLegs = [];
-    parlays.forEach(b => b.legs.forEach(leg => {
+    parlaysForWR.forEach(b => b.legs.forEach(leg => {
       if (leg.outcome === 'win' || leg.outcome === 'loss') parlayLegs.push(leg);
     }));
     totalConcluded = singleConcluded.length + parlayLegs.length;
     totalWins      = singleWins.length + parlayLegs.filter(l => l.outcome === 'win').length;
   } else {
-    const parlayConcluded = parlays.filter(b => b.outcome === 'win' || b.outcome === 'loss');
+    const parlayConcluded = parlaysForWR.filter(b => b.outcome === 'win' || b.outcome === 'loss');
     totalConcluded = singleConcluded.length + parlayConcluded.length;
     totalWins      = singleWins.length + parlayConcluded.filter(b => b.outcome === 'win').length;
   }
@@ -3451,9 +3480,19 @@ function renderDashboard(skipCharts = false) {
   // Stats
   const edgeBets = bets.filter(b => b.edge !== null);
   const avgEdge = edgeBets.length ? mean(edgeBets.map(b => b.edge)) : null;
+
+  // Overall win rate (all concluded, with tag exclusion)
+  const wrExcluded = _wrExcludedTags;
+  const filterByWrTags = arr => wrExcluded.size > 0 ? arr.filter(b => !b.tags || !b.tags.some(id => wrExcluded.has(id))) : arr;
   const actualWR = totalConcluded > 0 ? totalWins / totalConcluded : null;
-  const expectedWR = tracked.length ? mean(tracked.map(b => b.myProb)) : null;
-  const calDelta = actualWR !== null && expectedWR !== null ? actualWR - expectedWR : null;
+
+  // Calibration: only bets with myProb, with tag exclusion applied
+  const trackedFiltered = filterByWrTags(tracked);
+  const calActualWR  = trackedFiltered.filter(b => b.outcome === 'win' || b.outcome === 'loss').length > 0
+    ? trackedFiltered.filter(b => b.outcome === 'win').length / trackedFiltered.filter(b => b.outcome === 'win' || b.outcome === 'loss').length
+    : null;
+  const expectedWR   = trackedFiltered.length ? mean(trackedFiltered.map(b => b.myProb)) : null;
+  const calDelta     = calActualWR !== null && expectedWR !== null ? calActualWR - expectedWR : null;
   const realSettled  = settled.filter(b => !b.bonus);
   const bonusSettled = settled.filter(b => b.bonus);
   const realStaked   = realSettled.reduce((s, b) => s + b.stake, 0);
@@ -3474,15 +3513,15 @@ function renderDashboard(skipCharts = false) {
     : `${totalConcluded} win/loss, ${settled.filter(b=>b.outcome==='cashout').length} cashout`;
 
   document.getElementById('stats-row').innerHTML = `
-    ${statCard('Total Bets', bets.length, subLabel)}
+    ${tagFilterCard()}
     ${statCard('Avg Pred. Edge', avgEdge !== null ? fmt(avgEdge*100, true)+'%' : '—', 'across all bets', avgEdge)}
-    ${winRateCard(actualWR, expectedWR)}
-    ${statCard('Calibration Δ', calDelta !== null ? fmt(calDelta*100, true)+'%' : '—',
-        'actual vs your prediction', calDelta)}
+    ${winRateCard(actualWR)}
+    ${calCard(calDelta, calActualWR, expectedWR)}
   `;
   const _row2 = document.getElementById('stats-row2');
   _row2.style.height = '';
   _row2.innerHTML = `
+    ${statCard('Total Bets', bets.length, subLabel)}
     ${stakedCard(yldDenominator)}
     ${profitCard(yldNumerator)}
     ${yieldCard(yld)}
@@ -3492,8 +3531,8 @@ function renderDashboard(skipCharts = false) {
   _row2.style.height = _row2.offsetHeight + 'px';
 
   if (!skipCharts) renderProfitChart(bets);
-  if (!skipCharts) renderCalChart(tracked);
-  if (!skipCharts) renderEdgeChart(tracked);
+  if (!skipCharts) renderCalChart(trackedFiltered);
+  if (!skipCharts) renderEdgeChart(trackedFiltered);
   if (!skipCharts) renderMarketTable(tracked);
 }
 
@@ -3518,55 +3557,65 @@ let _wrByEvent = true;  // true = parlay legs count individually; false = parlay
 
 function toggleWinRate() {
   _wrByEvent = !_wrByEvent;
-  const bets = load();
-  const singles = bets.filter(b => b.type !== 'parlay');
-  const parlays  = bets.filter(b => b.type === 'parlay');
-  const singleConcluded = singles.filter(b => b.outcome === 'win' || b.outcome === 'loss');
-  const singleWins = singleConcluded.filter(b => b.outcome === 'win');
-  let totalConcluded, totalWins;
-  if (_wrByEvent) {
-    const parlayLegs = [];
-    parlays.forEach(b => b.legs.forEach(leg => {
-      if (leg.outcome === 'win' || leg.outcome === 'loss') parlayLegs.push(leg);
-    }));
-    totalConcluded = singleConcluded.length + parlayLegs.length;
-    totalWins      = singleWins.length + parlayLegs.filter(l => l.outcome === 'win').length;
-  } else {
-    const parlayConcluded = parlays.filter(b => b.outcome === 'win' || b.outcome === 'loss');
-    totalConcluded = singleConcluded.length + parlayConcluded.length;
-    totalWins      = singleWins.length + parlayConcluded.filter(b => b.outcome === 'win').length;
-  }
-  const singleTracked = singles.filter(b => b.outcome !== 'pending' && b.outcome !== 'cashout' && b.outcome !== 'push' && b.myProb !== null);
-  const legTracked = [];
-  parlays.forEach(b => b.legs.forEach(leg => {
-    if (leg.outcome !== 'pending' && leg.myProb !== null)
-      legTracked.push({ myProb: leg.myProb, edge: leg.edge, impliedProb: leg.impliedProb, outcome: leg.outcome, market: leg.market });
-  }));
-  const tracked = [...singleTracked, ...legTracked];
-  const actualWR   = totalConcluded > 0 ? totalWins / totalConcluded : null;
-  const expectedWR = tracked.length ? mean(tracked.map(b => b.myProb)) : null;
-  const el = id => document.getElementById(id);
-  if (el('wr-value')) el('wr-value').textContent = actualWR !== null ? pct(actualWR) : '—';
-  if (el('wr-sub'))   el('wr-sub').textContent   = expectedWR !== null ? `Expected ${pct(expectedWR)}` : 'no settled bets';
-  if (el('wr-check')) el('wr-check').checked = _wrByEvent;
+  renderDashboard(true);
 }
 
 
-function winRateCard(actualWR, expectedWR) {
-  const cls = actualWR !== null ? '' : '';
+let _wrExcludedTags = new Set(JSON.parse(localStorage.getItem('vbt_excl_tags') || '[]'));
+function toggleWrExcludeTag(tagId) {
+  if (_wrExcludedTags.has(tagId)) _wrExcludedTags.delete(tagId);
+  else _wrExcludedTags.add(tagId);
+  localStorage.setItem('vbt_excl_tags', JSON.stringify([..._wrExcludedTags]));
+  renderDashboard(false);
+}
+
+function tagFilterCard() {
+  const tags = loadTags();
+  if (!tags.length) return `<div class="stat-card" style="display:flex;flex-direction:column;justify-content:center">
+    <div class="stat-label">Exclude Tags</div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px">No tags yet</div>
+  </div>`;
+  const tagPills = tags.map(t => {
+    const excl = _wrExcludedTags.has(t.id);
+    const bg = excl ? hexRgba(t.color, 0.25) : 'transparent';
+    const border = excl ? t.color : 'var(--border)';
+    const color = excl ? t.color : 'var(--muted)';
+    const strike = excl ? 'text-decoration:line-through;' : '';
+    return `<span onclick="toggleWrExcludeTag('${t.id}')" style="cursor:pointer;padding:2px 8px;border-radius:20px;border:1px solid ${border};background:${bg};color:${color};${strike}font-size:11px;font-weight:500">${t.label}</span>`;
+  }).join('');
+  return `<div class="stat-card" style="display:flex;flex-direction:column;justify-content:center">
+    <div class="stat-label">Exclude Tags</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:4px;margin-bottom:8px">applies to all metrics below</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">${tagPills}</div>
+  </div>`;
+}
+
+function winRateCard(actualWR) {
   const val = actualWR !== null ? pct(actualWR) : '—';
-  const sub = expectedWR !== null ? `Expected ${pct(expectedWR)}` : 'no settled bets';
   return `<div class="stat-card">
-    <div class="stat-label">Actual Win Rate</div>
+    <div class="stat-label">Win Rate</div>
     <div class="stat-value" id="wr-value">${val}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--muted)">
-      <span id="wr-sub">${sub}</span>
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;margin-left:auto">
+    <div style="margin-top:6px;font-size:11px;color:var(--muted)">
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
         <input type="checkbox" id="wr-check" ${_wrByEvent ? 'checked' : ''} onchange="toggleWinRate()"
           style="width:11px;height:11px;accent-color:var(--accent);cursor:pointer">
         <span>by event</span>
       </label>
     </div>
+  </div>`;
+}
+
+function calCard(calDelta, calActualWR, expectedWR) {
+  const cls = calDelta !== null ? (calDelta >= 0 ? 'pos' : 'neg') : '';
+  const val = calDelta !== null ? fmt(calDelta*100, true)+'%' : '—';
+  const sub = calActualWR !== null && expectedWR !== null
+    ? `Actual ${pct(calActualWR)} · Expected ${pct(expectedWR)}`
+    : 'needs predicted prob';
+  return `<div class="stat-card">
+    <div class="stat-label">Calibration Δ</div>
+    <div class="stat-value ${cls}">${val}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">${sub}</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px">bets with pred. prob only</div>
   </div>`;
 }
 
@@ -3701,6 +3750,19 @@ function statCard(label, value, sub, signal=null) {
 }
 
 // Profit over time chart
+let _profitChartMode = 'day'; // 'day' or 'bet'
+function setProfitChartMode(mode) {
+  _profitChartMode = mode;
+  const accent = 'var(--accent)', none = 'none', white = '#fff', muted = 'var(--muted)';
+  const dayBtn = document.getElementById('profit-mode-day');
+  const betBtn = document.getElementById('profit-mode-bet');
+  if (dayBtn) { dayBtn.style.background = mode === 'day' ? accent : none; dayBtn.style.color = mode === 'day' ? white : muted; }
+  if (betBtn) { betBtn.style.background = mode === 'bet' ? accent : none; betBtn.style.color = mode === 'bet' ? white : muted; }
+  const sub = document.getElementById('profit-chart-sub');
+  if (sub) sub.textContent = mode === 'day' ? 'Cumulative profit grouped by day' : 'Cumulative profit per settled bet';
+  renderProfitChart(load());
+}
+
 function renderProfitChart(bets) {
   const settled = bets
     .filter(b => b.profit !== null)
@@ -3713,11 +3775,25 @@ function renderProfitChart(bets) {
   if (!settled.length) { canvas.style.display = 'none'; return; }
   canvas.style.display = '';
 
-  let running = 0;
-  const points = settled.map(b => {
-    running += b.profit;
-    return { x: b.date, y: parseFloat(running.toFixed(2)) };
-  });
+  let points;
+  if (_profitChartMode === 'day') {
+    // Group by date, sum profit per day, then cumulative
+    const dayMap = new Map();
+    settled.forEach(b => {
+      dayMap.set(b.date, (dayMap.get(b.date) || 0) + b.profit);
+    });
+    let running = 0;
+    points = [...dayMap.entries()].map(([date, profit]) => {
+      running += profit;
+      return { x: date, y: parseFloat(running.toFixed(2)) };
+    });
+  } else {
+    let running = 0;
+    points = settled.map(b => {
+      running += b.profit;
+      return { x: b.date, y: parseFloat(running.toFixed(2)) };
+    });
+  }
 
   const pointColors = points.map(p => p.y >= 0 ? 'rgba(63,185,80,0.9)' : 'rgba(248,81,73,0.9)');
   const smallSet = points.length <= 60;
@@ -3779,7 +3855,10 @@ function renderProfitChart(bets) {
         },
         x: {
           ticks: {
-            color: '#8b949e', font: { size: 10 }, maxRotation: 0, autoSkip: false,
+            color: '#8b949e', font: { size: 10 },
+            maxRotation: _profitChartMode === 'bet' ? 45 : 0,
+            minRotation: _profitChartMode === 'bet' ? 45 : 0,
+            autoSkip: false,
             callback(val, idx) {
               const label = this.getLabelForValue(val);
               if (idx === 0) return label;
