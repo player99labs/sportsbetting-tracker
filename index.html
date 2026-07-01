@@ -274,7 +274,7 @@ tr:hover td { background: var(--surface2); }
 /* ── Dashboard ── */
 .stats-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   margin-bottom: 14px;
 }
@@ -306,6 +306,45 @@ tr:hover td { background: var(--surface2); }
   margin-bottom: 4px;
 }
 .stat-sub { font-size: 11px; color: var(--muted); }
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  cursor: default;
+  margin-left: 5px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.info-tip .tip-content {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 270px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 11px;
+  color: var(--fg);
+  line-height: 1.6;
+  z-index: 200;
+  pointer-events: none;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.info-tip:hover .tip-content { display: block; }
 
 .charts-row {
   display: grid;
@@ -521,6 +560,7 @@ input.ocr-filled, select.ocr-filled {
     <button class="nav-btn active" data-view="add" onclick="showView(this,'add')">Log Bet</button>
     <button class="nav-btn" data-view="history" onclick="showView(this,'history')">History</button>
     <button class="nav-btn" data-view="dashboard" onclick="showView(this,'dashboard')">Dashboard</button>
+    <button class="nav-btn" data-view="about" onclick="showView(this,'about')">About</button>
   </nav>
 </header>
 
@@ -841,10 +881,10 @@ input.ocr-filled, select.ocr-filled {
   <div id="view-dashboard" class="view">
     <div class="page-header">
       <h2>Dashboard</h2>
-      <p>Financial Summary and Performance Analysis. Cashout bets are excluded from win rate and calibration charts, but included in all financial calculations.</p>
+      <p>Financial overview of your betting account, and value betting performance analysis based on your predicted probabilities.</p>
     </div>
     <div style="margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border);padding-top:20px;display:flex;align-items:center;gap:12px">
-      Financial Summary
+      Financial Overview
       <button onclick="toggleHideAmounts()" id="hide-amounts-btn" title="Show/hide amounts"
         style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer;color:var(--muted);display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;letter-spacing:0;text-transform:none">
         <svg id="hide-amounts-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -858,7 +898,7 @@ input.ocr-filled, select.ocr-filled {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
         <div>
           <div class="chart-title">Profit Over Time</div>
-          <div class="chart-sub" id="profit-chart-sub">Cumulative profit grouped by day</div>
+          <div class="chart-sub" id="profit-chart-sub">Cumulative profit by date</div>
         </div>
         <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:11px;font-weight:600">
           <button id="profit-mode-day" onclick="setProfitChartMode('day')"
@@ -869,7 +909,13 @@ input.ocr-filled, select.ocr-filled {
       </div>
       <canvas id="chart-profit" height="75"></canvas>
     </div>
-    <div style="margin:24px 0 10px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--border);padding-top:20px">Prediction Performance</div>
+    <div style="margin:24px 0 10px;border-top:1px solid var(--border);padding-top:20px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)">Value Betting Performance</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Includes only settled events (win/loss) with both predicted probability and implied probability logged. Parlay legs are counted as individual events. Cashouts and pushes excluded. Note: parlay legs added purely for a profit boost may carry negative predicted edge and skew results — use the tag filter to exclude them if needed.</div>
+      <div id="neg-edge-warning" style="display:none;margin-top:6px;font-size:11px;color:#f59e0b;align-items:center;gap:5px">
+        <span>⚠</span><span id="neg-edge-warning-text"></span>
+      </div>
+    </div>
     <div class="stats-row" id="stats-row"></div>
     <div class="charts-row">
       <div class="chart-card">
@@ -879,17 +925,133 @@ input.ocr-filled, select.ocr-filled {
         <div class="chart-note" id="cal-note"></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Pred. Edge vs Outcome</div>
-        <div class="chart-sub">Does higher pred. edge translate to higher win rate?</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+          <div style="display:flex;align-items:center;gap:0">
+            <div class="chart-title" style="margin-bottom:0">Pred. Edge vs Realized Edge</div>
+            <span class="info-tip" style="margin-left:6px;margin-top:1px">!<span class="tip-content"><strong>Does higher predicted edge translate to higher realized edge?</strong><br><br><strong>Buckets:</strong> groups bets by pred. edge range and compares avg. pred. edge vs avg. realized edge per bucket.<br><br><strong>Rolling Avg.:</strong> sorts all events by pred. edge and plots a rolling realized edge window — smoother and shows the trend without arbitrary bucket boundaries.</span></span>
+          </div>
+          <div style="display:flex;border:1px solid var(--border);border-radius:6px;overflow:hidden;font-size:11px;font-weight:600">
+            <button id="edge-mode-bucket" onclick="setEdgeChartMode('bucket')"
+              style="padding:3px 10px;cursor:pointer;border:none;border-right:1px solid var(--border);background:var(--accent);color:#fff">Buckets</button>
+            <button id="edge-mode-rolling" onclick="setEdgeChartMode('rolling')"
+              style="padding:3px 10px;cursor:pointer;border:none;background:none;color:var(--muted)">Rolling Avg.</button>
+          </div>
+        </div>
+        <div class="chart-sub" id="edge-chart-sub">Grouped by predicted edge range</div>
         <canvas id="chart-edge" height="210"></canvas>
       </div>
     </div>
     <div class="market-card">
-      <div class="market-card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+      <div class="market-card-header">
         <span>Performance by Market</span>
-        <div id="market-tag-filter" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px"></div>
       </div>
       <div id="market-container"></div>
+    </div>
+  </div>
+
+  <!-- ── ABOUT ── -->
+  <div id="view-about" class="view">
+    <div style="max-width:720px;margin:0 auto;padding-bottom:60px">
+
+      <!-- Slogan -->
+      <div style="text-align:center;padding:48px 0 36px">
+        <div style="font-size:28px;font-weight:800;letter-spacing:-0.5px;line-height:1.2">Don't track your bets.<br>Track your edge.</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:10px;font-style:italic">Profit follows edge.</div>
+      </div>
+
+      <!-- Purpose -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:14px">Purpose</div>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">This tool is designed for bettors who practice or want to practice <strong>value betting</strong> — the strategy of placing bets only when the estimated true probability of an outcome exceeds the implied probability offered by the sportsbook.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">Its primary purpose is not to track wins and losses, but to <strong>measure edge</strong> — specifically, whether a bettor's probability estimates are consistently more accurate than the market's, and whether that accuracy translates into a quantifiable, sustained advantage over time.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">To that end, the tool separates financial performance from predictive performance, provides calibration analysis at the event level, and surfaces the key metrics needed to distinguish genuine skill from short-term variance.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0">If you've ever wondered whether your betting instincts are genuinely better than the market — this tool is built to help you find out.</p>
+      </div>
+
+      <!-- Story -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:14px">Why I Built This</div>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">I've been watching soccer for a long time. Betting started as a way to add excitement — a few dollars on a match made you care a little more about every corner kick. Then something shifted. I started noticing moments where an odd just seemed… wrong. A team I thought would win, sitting at odds of 2.00 — when it felt like it should've been closer to 1.60. Not probability math, just a gut feeling that the market was off. Not every game, but sometimes.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">I kept doing both — the excitement bets and the "I think this is mispriced" bets. Then I got curious about how sportsbooks actually set their lines. I started reading about OPTA models, market-making, how public money moves lines, behavioral pricing. I'm the kind of person who likes figuring out how systems work — I play Hearthstone Battlegrounds, I like math, I like uncovering the logic underneath things.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">Eventually I found out the thing I'd been doing already has a name: <strong>value betting</strong>. And with the FIFA World Cup 2026, I decided to take it seriously — not just bet, but actually test myself. Do I have a real edge in identifying mispriced soccer events? Not gut feeling, not vibes. Numbers.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0">So I built this. A tool designed specifically for value bettors who want to know not just whether they're winning, but <em>why</em> — and whether it's skill or variance.</p>
+      </div>
+
+      <!-- What is Value Betting -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:14px">What Is Value Betting</div>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">Every odd a sportsbook offers implies a probability. Odds of 2.00 imply a 50% chance of winning (1 / 2.00 = 50%). Odds of 1.67 imply ~60%. This is called the <strong>implied probability</strong>.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">Value betting is the practice of placing bets only when you believe the true probability of an outcome is <em>higher</em> than the implied probability. If you think a team has a 65% chance of winning but the odds imply 55%, you have a <strong>predicted edge</strong> of +10%. If you're right consistently, positive expected value compounds into profit over time.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0 0 14px">The key insight: <strong>you don't need to win every bet</strong>. You need to be better calibrated than the market on average. A 45% win rate at 2.50 odds is very profitable. A 60% win rate at 1.40 odds is not.</p>
+        <p style="font-size:14px;line-height:1.75;color:var(--fg);margin:0">Sportsbook odds are influenced by models, sharp money, public sentiment, and liquidity. Mispricings exist — especially in niche markets, live betting, and situations where the public over- or under-reacts. Your edge, if you have one, comes from being more accurate than the market in those specific situations.</p>
+      </div>
+
+      <!-- Metrics -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:18px">Metrics Explained</div>
+
+        <div style="margin-bottom:18px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Pred. Edge = Pred. Prob − Implied Prob</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">How much value you believed you were getting at the time of placing the bet. Purely forward-looking. A consistently positive number means you're systematically finding odds you believe are underpriced.</div>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Avg. Realized Edge = Actual Win Rate − Avg. Implied Prob</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">The edge you actually captured on this sample of bets. The bottom line — did the market actually misprice these outcomes in your favor? Note: this reflects not just market mispricing but also your selection of which bets to place.</div>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Calibration Δ = Actual Win Rate − Avg. Pred. Prob</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">How accurate your probability estimates are. A delta of 0 is perfect calibration. Positive means you're underestimating yourself; negative means you're overconfident. They relate as: Realized Edge = Pred. Edge + Calibration Δ.</div>
+        </div>
+
+      </div>
+
+      <!-- Graphs -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:18px">How to Read the Charts</div>
+
+        <div style="margin-bottom:18px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Profit Over Time</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">Cumulative profit across settled bets. A healthy value bettor's curve trends upward but with variance — expect dips. The slope matters more than individual swings. Switch between Daily and Per Bet view to see different granularities.</div>
+        </div>
+
+        <div style="margin-bottom:18px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Calibration Chart</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">Groups bets by your predicted probability bucket (50–60%, 60–70%, etc.) and compares your predicted win rate against the actual win rate. Bars close to the diagonal line = well calibrated. Bars consistently below = overconfident. Requires at least 3 bets per bucket to display.</div>
+        </div>
+
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Pred. Edge vs Realized Edge</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">Tests the core hypothesis: does higher predicted edge translate to higher realized edge? In Buckets view, bets are grouped by pred. edge range and you see both metrics side by side. In Rolling Avg. view, events are sorted by pred. edge and a rolling realized edge is computed — a positively sloping line confirms your model is directionally correct.</div>
+        </div>
+      </div>
+
+      <!-- Limitations -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;margin-bottom:24px">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);margin-bottom:18px">Limitations & Caveats</div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Sample size</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">All metrics in the Value Betting Performance section require a large sample to be meaningful. With fewer than ~200 events, variance can make a skilled bettor look bad or a lucky bettor look skilled. Treat early numbers as directional, not conclusive.</div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Selection bias in realized edge</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">Realized edge reflects both market mispricing and your choice of which bets to place. A positive realized edge doesn't prove the market is systematically wrong — it proves the specific subset of events you chose to bet on worked out. The distinction matters for interpreting long-term results.</div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Parlay legs & profit boosts</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">Parlay legs are counted as individual events in this tool. However, if you added a leg to a parlay purely because of a profit boost — not because the leg itself was mispriced — its implied probability doesn't reflect your actual betting rationale. This can distort your edge metrics. Use the tag filter to exclude such parlays from the Value Betting Performance section.</div>
+        </div>
+
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">Metrics require complete logging</div>
+          <div style="font-size:13px;line-height:1.7;color:var(--muted)">The Value Betting Performance section only includes bets where both predicted probability and implied probability are logged. Incomplete logging shrinks your sample and may introduce bias if you're selectively logging only certain bets.</div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -3477,22 +3639,21 @@ function renderDashboard(skipCharts = false) {
     totalWins      = singleWins.length + parlayConcluded.filter(b => b.outcome === 'win').length;
   }
 
-  // Stats
-  const edgeBets = bets.filter(b => b.edge !== null);
-  const avgEdge = edgeBets.length ? mean(edgeBets.map(b => b.edge)) : null;
-
   // Overall win rate (all concluded, with tag exclusion)
   const wrExcluded = _wrExcludedTags;
   const filterByWrTags = arr => wrExcluded.size > 0 ? arr.filter(b => !b.tags || !b.tags.some(id => wrExcluded.has(id))) : arr;
   const actualWR = totalConcluded > 0 ? totalWins / totalConcluded : null;
 
-  // Calibration: only bets with myProb, with tag exclusion applied
+  // All three prediction cards use the same base: settled bets with both myProb and impliedProb, tag-excluded
   const trackedFiltered = filterByWrTags(tracked);
-  const calActualWR  = trackedFiltered.filter(b => b.outcome === 'win' || b.outcome === 'loss').length > 0
-    ? trackedFiltered.filter(b => b.outcome === 'win').length / trackedFiltered.filter(b => b.outcome === 'win' || b.outcome === 'loss').length
-    : null;
-  const expectedWR   = trackedFiltered.length ? mean(trackedFiltered.map(b => b.myProb)) : null;
-  const calDelta     = calActualWR !== null && expectedWR !== null ? calActualWR - expectedWR : null;
+  const impliedFiltered = trackedFiltered.filter(b => b.impliedProb !== null);
+  const impliedConcluded = impliedFiltered.filter(b => b.outcome === 'win' || b.outcome === 'loss');
+  const sharedActualWR   = impliedConcluded.length > 0 ? impliedFiltered.filter(b => b.outcome === 'win').length / impliedConcluded.length : null;
+  const sharedExpectedWR = impliedFiltered.length ? mean(impliedFiltered.map(b => b.myProb)) : null;
+  const sharedImpliedProb = impliedFiltered.length ? mean(impliedFiltered.map(b => b.impliedProb)) : null;
+  const avgEdge      = sharedExpectedWR !== null && sharedImpliedProb !== null ? sharedExpectedWR - sharedImpliedProb : null;
+  const calDelta     = sharedActualWR !== null && sharedExpectedWR !== null ? sharedActualWR - sharedExpectedWR : null;
+  const realizedEdge = sharedActualWR !== null && sharedImpliedProb !== null ? sharedActualWR - sharedImpliedProb : null;
   const realSettled  = settled.filter(b => !b.bonus);
   const bonusSettled = settled.filter(b => b.bonus);
   const realStaked   = realSettled.reduce((s, b) => s + b.stake, 0);
@@ -3514,9 +3675,10 @@ function renderDashboard(skipCharts = false) {
 
   document.getElementById('stats-row').innerHTML = `
     ${tagFilterCard()}
-    ${statCard('Avg Pred. Edge', avgEdge !== null ? fmt(avgEdge*100, true)+'%' : '—', 'across all bets', avgEdge)}
-    ${winRateCard(actualWR)}
-    ${calCard(calDelta, calActualWR, expectedWR)}
+    ${winRateCard(sharedActualWR, impliedConcluded.length)}
+    ${avgPredEdgeCard(avgEdge, sharedExpectedWR, sharedImpliedProb)}
+    ${realizedEdgeCard(realizedEdge, sharedActualWR, sharedImpliedProb)}
+    ${calCard(calDelta, sharedActualWR, sharedExpectedWR)}
   `;
   const _row2 = document.getElementById('stats-row2');
   _row2.style.height = '';
@@ -3531,8 +3693,21 @@ function renderDashboard(skipCharts = false) {
   _row2.style.height = _row2.offsetHeight + 'px';
 
   if (!skipCharts) renderProfitChart(bets);
-  if (!skipCharts) renderCalChart(trackedFiltered);
-  if (!skipCharts) renderEdgeChart(trackedFiltered);
+  // Negative edge warning
+  const negEdgeCount = impliedFiltered.filter(b => b.edge !== null && b.edge < 0).length;
+  const negWarn = document.getElementById('neg-edge-warning');
+  const negWarnText = document.getElementById('neg-edge-warning-text');
+  if (negWarn && negWarnText) {
+    if (negEdgeCount > 0) {
+      negWarnText.textContent = `${negEdgeCount} event${negEdgeCount > 1 ? 's' : ''} with negative pred. edge detected. Consider excluding via tag filter.`;
+      negWarn.style.display = 'flex';
+    } else {
+      negWarn.style.display = 'none';
+    }
+  }
+
+  if (!skipCharts) renderCalChart(impliedFiltered);
+  if (!skipCharts) renderEdgeChart(impliedFiltered);
   if (!skipCharts) renderMarketTable(tracked);
 }
 
@@ -3590,18 +3765,12 @@ function tagFilterCard() {
   </div>`;
 }
 
-function winRateCard(actualWR) {
+function winRateCard(actualWR, eventCount) {
   const val = actualWR !== null ? pct(actualWR) : '—';
   return `<div class="stat-card">
     <div class="stat-label">Win Rate</div>
     <div class="stat-value" id="wr-value">${val}</div>
-    <div style="margin-top:6px;font-size:11px;color:var(--muted)">
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">
-        <input type="checkbox" id="wr-check" ${_wrByEvent ? 'checked' : ''} onchange="toggleWinRate()"
-          style="width:11px;height:11px;accent-color:var(--accent);cursor:pointer">
-        <span>by event</span>
-      </label>
-    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">${eventCount} events in total</div>
   </div>`;
 }
 
@@ -3612,10 +3781,41 @@ function calCard(calDelta, calActualWR, expectedWR) {
     ? `Actual ${pct(calActualWR)} · Expected ${pct(expectedWR)}`
     : 'needs predicted prob';
   return `<div class="stat-card">
-    <div class="stat-label">Calibration Δ</div>
+    <div class="stat-label" style="display:flex;align-items:center">Calibration Δ
+      <span class="info-tip">!<span class="tip-content"><strong>Actual WR − Avg. Pred. Prob</strong><br><br>How accurate your probability estimates are. Δ = 0 is perfect. Positive means you're underestimating yourself; negative means you're overconfident.</span></span>
+    </div>
     <div class="stat-value ${cls}">${val}</div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">${sub}</div>
-    <div style="font-size:10px;color:var(--muted);margin-top:2px">bets with pred. prob only</div>
+  </div>`;
+}
+
+function avgPredEdgeCard(avgEdge, avgPredProb, avgImpliedProb) {
+  const cls = avgEdge !== null ? (avgEdge >= 0 ? 'pos' : 'neg') : '';
+  const val = avgEdge !== null ? fmt(avgEdge*100, true)+'%' : '—';
+  const sub = avgPredProb !== null && avgImpliedProb !== null
+    ? `Expected ${pct(avgPredProb)} · Avg. Implied ${pct(avgImpliedProb)}`
+    : 'needs pred. prob & implied prob';
+  return `<div class="stat-card">
+    <div class="stat-label" style="display:flex;align-items:center">Avg. Pred. Edge
+      <span class="info-tip">!<span class="tip-content"><strong>Avg. Pred. Prob − Avg. Implied Prob</strong><br><br>How much value you thought you were getting at bet time. Forward-looking — your model vs the bookmaker's price. Consistently positive means you're systematically finding underpriced odds.</span></span>
+    </div>
+    <div class="stat-value ${cls}">${val}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">${sub}</div>
+  </div>`;
+}
+
+function realizedEdgeCard(realizedEdge, impliedActWR, avgImpliedProb) {
+  const cls = realizedEdge !== null ? (realizedEdge >= 0 ? 'pos' : 'neg') : '';
+  const val = realizedEdge !== null ? fmt(realizedEdge*100, true)+'%' : '—';
+  const sub = impliedActWR !== null && avgImpliedProb !== null
+    ? `Actual ${pct(impliedActWR)} · Avg. Implied ${pct(avgImpliedProb)}`
+    : 'needs implied prob';
+  return `<div class="stat-card">
+    <div class="stat-label" style="display:flex;align-items:center">Avg. Realized Edge
+      <span class="info-tip">!<span class="tip-content"><strong>Actual WR − Avg. Implied Prob</strong><br><br>The edge you actually captured on this sample of bets. The bottom line — did the market misprice these outcomes in your favor?</span></span>
+    </div>
+    <div class="stat-value ${cls}">${val}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">${sub}</div>
   </div>`;
 }
 
@@ -3759,7 +3959,7 @@ function setProfitChartMode(mode) {
   if (dayBtn) { dayBtn.style.background = mode === 'day' ? accent : none; dayBtn.style.color = mode === 'day' ? white : muted; }
   if (betBtn) { betBtn.style.background = mode === 'bet' ? accent : none; betBtn.style.color = mode === 'bet' ? white : muted; }
   const sub = document.getElementById('profit-chart-sub');
-  if (sub) sub.textContent = mode === 'day' ? 'Cumulative profit grouped by day' : 'Cumulative profit per settled bet';
+  if (sub) sub.textContent = mode === 'day' ? 'Cumulative profit by date' : 'Cumulative profit per settled bet';
   renderProfitChart(load());
 }
 
@@ -3985,79 +4185,113 @@ function renderCalChart(settled) {
   });
 }
 
-// Edge vs outcome chart
+let _edgeChartMode = 'bucket';
+let _edgeChartData = [];
+function setEdgeChartMode(mode) {
+  _edgeChartMode = mode;
+  const accent = 'var(--accent)', none = 'none', white = '#fff', muted = 'var(--muted)';
+  const bBtn = document.getElementById('edge-mode-bucket');
+  const rBtn = document.getElementById('edge-mode-rolling');
+  if (bBtn) { bBtn.style.background = mode === 'bucket' ? accent : none; bBtn.style.color = mode === 'bucket' ? white : muted; }
+  if (rBtn) { rBtn.style.background = mode === 'rolling' ? accent : none; rBtn.style.color = mode === 'rolling' ? white : muted; }
+  const sub = document.getElementById('edge-chart-sub');
+  if (sub) sub.textContent = mode === 'bucket' ? 'Grouped by predicted edge range' : 'Rolling realized edge sorted by predicted edge';
+  renderEdgeChart(_edgeChartData);
+}
+
+// Pred. Edge vs Realized Edge chart
 function renderEdgeChart(settled) {
+  _edgeChartData = settled;
   const buckets = [
-    { label: '0–3%',  lo: 0,    hi: 0.03 },
-    { label: '3–6%',  lo: 0.03, hi: 0.06 },
-    { label: '6–10%', lo: 0.06, hi: 0.10 },
-    { label: '10%+',  lo: 0.10, hi: 99   },
+    { label: '<0%',   lo: -99,  hi: 0    },
+    { label: '0–5%',  lo: 0,    hi: 0.05 },
+    { label: '5–10%', lo: 0.05, hi: 0.10 },
+    { label: '10–15%',lo: 0.10, hi: 0.15 },
+    { label: '15%+',  lo: 0.15, hi: 99   },
   ];
 
-  const MIN_SAMPLE = 2;
+  const MIN_SAMPLE = 3;
   const rows = buckets.map(bk => {
-    const group = settled.filter(b => b.edge >= bk.lo && b.edge < bk.hi);
-    const wins  = group.filter(b => b.outcome === 'win');
-    return {
-      label: `${bk.label}\n(n=${group.length})`,
-      actual:    group.length >= MIN_SAMPLE ? (wins.length / group.length) * 100 : null,
-      predicted: group.length ? mean(group.map(b => b.myProb)) * 100 : null,
-      implied:   group.length ? mean(group.map(b => b.impliedProb)) * 100 : null,
-    };
-  });
+    const group = settled.filter(b => b.edge !== null && b.edge >= bk.lo && b.edge < bk.hi);
+    const concluded = group.filter(b => b.outcome === 'win' || b.outcome === 'loss');
+    const wins = group.filter(b => b.outcome === 'win');
+    const avgPredEdge = group.length ? mean(group.map(b => b.edge)) * 100 : null;
+    const actWR = concluded.length >= MIN_SAMPLE ? wins.length / concluded.length : null;
+    const avgImplied = group.length ? mean(group.map(b => b.impliedProb)) : null;
+    const realizedEdge = actWR !== null && avgImplied !== null ? (actWR - avgImplied) * 100 : null;
+    return { label: `${bk.label}\n(n=${concluded.length})`, avgPredEdge, realizedEdge };
+  }).filter(r => r.avgPredEdge !== null || r.realizedEdge !== null);
 
   destroyChart('edge');
   const ctx = document.getElementById('chart-edge').getContext('2d');
-  charts.edge = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: rows.map(r => r.label),
-      datasets: [
-        { label: 'Actual Win Rate', data: rows.map(r => r.actual),
-          backgroundColor: 'rgba(63,185,80,0.6)', borderColor: 'rgba(63,185,80,1)',
-          borderWidth: 1, borderRadius: 4 },
-        { label: 'My Prediction', data: rows.map(r => r.predicted),
-          backgroundColor: 'rgba(88,166,255,0.3)', borderColor: 'rgba(88,166,255,0.8)',
-          borderWidth: 1, borderRadius: 4 },
-        { label: 'Bookmaker Implied', data: rows.map(r => r.implied),
-          backgroundColor: 'rgba(227,179,65,0.3)', borderColor: 'rgba(227,179,65,0.8)',
-          borderWidth: 1, borderRadius: 4 },
-      ],
-    },
-    options: chartOpts({ max: 100, suffix: '%' }),
-  });
+  if (!ctx) return;
+
+  const zeroGrid = {
+    color: c => c.tick.value === 0 ? 'rgba(139,148,158,0.5)' : 'rgba(48,54,61,0.8)',
+    lineWidth: c => c.tick.value === 0 ? 1.5 : 1,
+  };
+  const yTicks = { color: '#8b949e', callback: v => (v >= 0 ? '+' : '') + v + '%' };
+  const tooltip = { callbacks: { label: c => `${c.dataset.label}: ${c.raw !== null ? (c.raw >= 0 ? '+' : '') + c.raw.toFixed(2) + '%' : 'not enough data'}` } };
+  const legend = { labels: { color: '#8b949e', font: { size: 11 }, boxWidth: 12 } };
+
+  if (_edgeChartMode === 'bucket') {
+    charts.edge = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.label),
+        datasets: [
+          { label: 'Avg. Pred. Edge', data: rows.map(r => r.avgPredEdge !== null ? parseFloat(r.avgPredEdge.toFixed(2)) : null),
+            backgroundColor: 'rgba(88,166,255,0.3)', borderColor: 'rgba(88,166,255,0.8)', borderWidth: 1, borderRadius: 4 },
+          { label: 'Avg. Realized Edge', data: rows.map(r => r.realizedEdge !== null ? parseFloat(r.realizedEdge.toFixed(2)) : null),
+            backgroundColor: 'rgba(63,185,80,0.5)', borderColor: 'rgba(63,185,80,1)', borderWidth: 1, borderRadius: 4 },
+        ],
+      },
+      options: { responsive: true, plugins: { legend, tooltip }, scales: { y: { ticks: yTicks, grid: zeroGrid }, x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: 'rgba(48,54,61,0.4)' } } } },
+    });
+  } else {
+    // Rolling average mode
+    const sorted = [...settled].filter(b => b.edge !== null && b.impliedProb !== null).sort((a, b) => a.edge - b.edge);
+    const n = sorted.length;
+    if (n < 3) { ctx.canvas.style.display = 'none'; return; }
+    ctx.canvas.style.display = '';
+    const win = Math.max(5, Math.min(20, Math.floor(n / 4)));
+    const pts = sorted.map((b, i) => {
+      const lo = Math.max(0, i - Math.floor(win / 2));
+      const hi = Math.min(n, lo + win);
+      const slice = sorted.slice(lo, hi);
+      const concluded = slice.filter(s => s.outcome === 'win' || s.outcome === 'loss');
+      const wins = concluded.filter(s => s.outcome === 'win');
+      const actWR = concluded.length ? wins.length / concluded.length : null;
+      const avgImpl = mean(slice.map(s => s.impliedProb));
+      const realized = actWR !== null ? (actWR - avgImpl) * 100 : null;
+      return { x: parseFloat((b.edge * 100).toFixed(2)), realized };
+    });
+    charts.edge = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: pts.map(p => (p.x >= 0 ? '+' : '') + p.x.toFixed(1) + '%'),
+        datasets: [
+          { label: 'Rolling Realized Edge', data: pts.map(p => p.realized !== null ? parseFloat(p.realized.toFixed(2)) : null),
+            borderColor: 'rgba(63,185,80,0.85)', borderWidth: 2, pointRadius: 0, pointHoverRadius: 4,
+            fill: false, tension: 0.35,
+            segment: { borderColor: c => c.p1.parsed.y < 0 ? 'rgba(248,81,73,0.8)' : 'rgba(63,185,80,0.85)' } },
+        ],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend, tooltip },
+        scales: {
+          y: { ticks: yTicks, grid: zeroGrid },
+          x: { ticks: { color: '#8b949e', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, grid: { color: 'rgba(48,54,61,0.4)' } },
+        },
+      },
+    });
+  }
 }
 
 // Market breakdown table
 let _marketSort = { col: 'n', dir: -1 };
 let _marketSettled = [];
-let _marketExcludedTags = new Set();
-
-function toggleMarketExcludeTag(tagId) {
-  if (_marketExcludedTags.has(tagId)) _marketExcludedTags.delete(tagId);
-  else _marketExcludedTags.add(tagId);
-  renderMarketTagFilter();
-  renderMarketTable(_marketSettled);
-}
-
-function renderMarketTagFilter() {
-  const el = document.getElementById('market-tag-filter');
-  if (!el) return;
-  const tags = loadTags();
-  if (!tags.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<span style="color:var(--muted);margin-right:2px">Exclude:</span>' +
-    tags.map(t => {
-      const excluded = _marketExcludedTags.has(t.id);
-      const bg = excluded ? hexRgba(t.color, 0.25) : 'transparent';
-      const border = excluded ? t.color : 'var(--border)';
-      const textColor = excluded ? t.color : 'var(--muted)';
-      const strike = excluded ? 'text-decoration:line-through;' : '';
-      return `<span onclick="toggleMarketExcludeTag('${t.id}')"
-        style="cursor:pointer;padding:2px 8px;border-radius:20px;border:1px solid ${border};
-               background:${bg};color:${textColor};${strike}font-size:11px;font-weight:500;
-               transition:all 0.12s">${t.label}</span>`;
-    }).join('');
-}
 
 function sortMarketTable(col) {
   if (_marketSort.col === col) _marketSort.dir *= -1;
@@ -4066,10 +4300,9 @@ function sortMarketTable(col) {
 }
 function renderMarketTable(settled) {
   _marketSettled = settled;
-  renderMarketTagFilter();
-  // Apply tag exclusion filter
-  if (_marketExcludedTags.size > 0) {
-    settled = settled.filter(b => !b.tags || !b.tags.some(id => _marketExcludedTags.has(id)));
+  // Apply shared tag exclusion filter
+  if (_wrExcludedTags.size > 0) {
+    settled = settled.filter(b => !b.tags || !b.tags.some(id => _wrExcludedTags.has(id)));
   }
   const container = document.getElementById('market-container');
   const markets = [...new Set(settled.map(b => b.market).filter(Boolean))];
@@ -4086,7 +4319,12 @@ function renderMarketTable(settled) {
     const expWR   = mean(group.map(b => b.myProb));
     const actWR   = wins.length / group.length;
     const delta   = actWR - expWR;
-    return { mkt, n: group.length, avgEdge, expWR, actWR, delta };
+    const impliedGroup = group.filter(b => b.impliedProb !== null);
+    const impliedConcluded = impliedGroup.filter(b => b.outcome === 'win' || b.outcome === 'loss');
+    const impliedActWR = impliedConcluded.length > 0 ? impliedGroup.filter(b => b.outcome === 'win').length / impliedConcluded.length : null;
+    const avgImplied = impliedGroup.length ? mean(impliedGroup.map(b => b.impliedProb)) : null;
+    const realizedEdge = impliedActWR !== null && avgImplied !== null ? impliedActWR - avgImplied : null;
+    return { mkt, n: group.length, avgEdge, expWR, actWR, delta, realizedEdge };
   }).sort((a, b) => _marketSort.dir * ((a[_marketSort.col] ?? -Infinity) - (b[_marketSort.col] ?? -Infinity)));
 
   const arr = col => _marketSort.col === col ? (_marketSort.dir === -1 ? ' ↓' : ' ↑') : '';
@@ -4099,9 +4337,10 @@ function renderMarketTable(settled) {
           <tr>
             <th>Market</th>
             ${th('n','Bets')}
-            ${th('avgEdge','Avg Pred. Edge')}
-            ${th('expWR','My Avg Prob')}
+            ${th('expWR','My Avg. Prob')}
             ${th('actWR','Actual Win Rate')}
+            ${th('avgEdge','Avg. Pred. Edge')}
+            ${th('realizedEdge','Avg. Realized Edge')}
             ${th('delta','Calibration Δ')}
           </tr>
         </thead>
@@ -4109,9 +4348,10 @@ function renderMarketTable(settled) {
           ${rows.map(r => `<tr>
             <td><strong>${r.mkt}</strong></td>
             <td>${r.n}</td>
-            <td class="${r.avgEdge>=0?'pos':'neg'}">${fmt(r.avgEdge*100,true)}%</td>
             <td>${pct(r.expWR)}</td>
             <td>${pct(r.actWR)}</td>
+            <td class="${r.avgEdge>=0?'pos':'neg'}">${fmt(r.avgEdge*100,true)}%</td>
+            <td class="${r.realizedEdge===null?'':(r.realizedEdge>=0?'pos':'neg')}">${r.realizedEdge!==null ? fmt(r.realizedEdge*100,true)+'%' : '—'}</td>
             <td class="${r.delta>=0?'pos':'neg'}">${fmt(r.delta*100,true)}%</td>
           </tr>`).join('')}
         </tbody>
