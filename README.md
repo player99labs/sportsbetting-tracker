@@ -1,6 +1,8 @@
 # ⚽️ Sportsbetting Performance Tracker
 
-A local tracker to log and analyze your sports bets.
+### Don't track your bets. Track your edge.
+
+A local tracker to log sports bets and evaluate your performance in value betting.
 
 Built to test whether value betting actually beats the book over FIFA World Cup 2026.
 
@@ -8,7 +10,7 @@ Built to test whether value betting actually beats the book over FIFA World Cup 
 
 - Single bets, parlays, SGPs, and squad bets
 - Upload screenshot → auto-detects bet type, outcome, odds, teams, and payout (optimized for Fanatics Sportsbook)
-- Dashboard with P&L, win rate, ROI, and edge analysis
+- Dashboard with financial overview and value betting performance evaluation
 
 ---
 
